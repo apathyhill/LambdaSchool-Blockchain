@@ -5,6 +5,7 @@ import sys
 import json
 import random
 
+id = None
 
 def proof_of_work(block):
     print("Looking for proof...")
@@ -38,55 +39,54 @@ def valid_proof(block_string, proof):
     :return: True if the resulting hash is a valid proof, False otherwise
     """
     guess = f"{block_string}{proof}".encode()
-    print(guess)
     guess_hash = hashlib.sha256(guess).hexdigest()
-    guess_valid = guess_hash[:2] == "00"
+    guess_valid = guess_hash[:6] == "000000"
     if guess_valid:
         print(f"Found proof {proof} with hash {guess_hash}!")
     return guess_valid
 
 
+def mine(*args):
+    if len(args) < 1:
+        print("Please enter a username.")
+        return
+    username = args[0]
+    print(f"Welcome {username}! Mining a block...")
+    r = requests.get(url=node + "/last_block")
+    # Handle non-json response
+    try:
+        data = r.json()
+    except ValueError:
+        print("Error:  Non-json response")
+        print("Response returned:")
+        print(r)
+        return
+
+    # Get data block
+    new_proof = proof_of_work(data["block"])
+
+    # When found, POST it to the server {"proof": new_proof, "id": id}
+    post_data = {"proof": new_proof, "id": username}
+
+    # Mine block
+    r = requests.post(url=node + "/mine", json=post_data)
+    data = r.json()
+
+    # Return message
+    if data["message"] == "New Block Forged":
+        print(f"You found a coin!")
+    else:
+        print(data["message"])
+
+CMDS = {
+    "mine": mine,
+}
+
+
 if __name__ == "__main__":
     # What is the server address? IE `python3 miner.py https://server.com/api/`
+    node = "http://localhost:5000"
     if len(sys.argv) > 1:
-        node = sys.argv[1]
-    else:
-        node = "http://localhost:5000"
-
-    # Load ID
-    f = open("my_id.txt", "r")
-    id = f.read()
-    print(f"Your ID is: {id}")
-    f.close()
-
-    coins = 0
-
-    # Run forever until interrupted
-    while True:
-        r = requests.get(url=node + "/last_block")
-        # Handle non-json response
-        try:
-            data = r.json()
-        except ValueError:
-            print("Error:  Non-json response")
-            print("Response returned:")
-            print(r)
-            break
-
-        # Get data block
-        new_proof = proof_of_work(data["block"])
-
-        # When found, POST it to the server {"proof": new_proof, "id": id}
-        post_data = {"proof": new_proof, "id": id}
-
-        # Mine block
-        r = requests.post(url=node + "/mine", json=post_data)
-        data = r.json()
-
-        # Return message
-        if data["message"] == "New Block Forged":
-            coins += 1
-            print(f"You found a coin! You currently have {coins} coins.")
-        else:
-            print(data["message"])
-
+        if sys.argv[1] in CMDS:
+            cmd = sys.argv[1]
+            CMDS[cmd](*sys.argv[2:])

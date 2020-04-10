@@ -90,7 +90,6 @@ class Blockchain(object):
     def last_block(self):
         return self.chain[-1]
 
-
     @staticmethod
     def valid_proof(block_string, proof):
         """
@@ -106,6 +105,14 @@ class Blockchain(object):
         guess = f"{block_string}{proof}".encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:6] == "000000"
+
+    def new_transaction(self, sender, recipient, amount):
+        transaction = {
+            "sender": sender, 
+            "recipient": recipient, 
+            "amount": amount
+        }
+        self.current_transactions.append(transaction)
 
 
 # Instantiate our Node
@@ -132,6 +139,7 @@ def mine():
     # Get data
     data = request.get_json()
     proof = data["proof"]
+    id = data["id"]
 
     # Check if proof is valid
     block_str = json.dumps(blockchain.last_block, sort_keys=True)
@@ -139,6 +147,7 @@ def mine():
 
     if proof_valid:
         # Start a new block
+        transaction = blockchain.new_transaction(sender="0", recipient=id, amount=1)
         hash_prev = blockchain.hash(blockchain.last_block)
         block_new = blockchain.new_block(proof, hash_prev)
 
